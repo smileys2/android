@@ -22,12 +22,12 @@ package com.owncloud.android.data.sharees.datasources
 import com.owncloud.android.data.sharing.sharees.datasources.implementation.OCRemoteShareeDataSource
 import com.owncloud.android.data.sharing.sharees.datasources.mapper.RemoteShareeMapper
 import com.owncloud.android.domain.sharing.sharees.model.OCSharee
-import com.owncloud.android.lib.resources.shares.services.implementation.OCShareeService
 import com.owncloud.android.domain.sharing.shares.model.ShareType
 import com.owncloud.android.lib.resources.shares.responses.ExactSharees
 import com.owncloud.android.lib.resources.shares.responses.ShareeItem
 import com.owncloud.android.lib.resources.shares.responses.ShareeOcsResponse
 import com.owncloud.android.lib.resources.shares.responses.ShareeValue
+import com.owncloud.android.lib.resources.shares.services.implementation.OCShareeService
 import com.owncloud.android.utils.createRemoteOperationResultMock
 import io.mockk.every
 import io.mockk.mockk
