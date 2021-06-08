@@ -140,6 +140,10 @@ public class FileUploader extends Service
      */
     protected static final String KEY_CREATED_BY = "CREATED_BY";
     /**
+     * We will use this one for uploads using SAF
+     */
+    protected static final String KEY_CONTENT_URI = "CONTENT_URI";
+    /**
      * Set to true if upload is to performed only when phone is being charged.
      */
     protected static final String KEY_WHILE_CHARGING_ONLY = "KEY_WHILE_CHARGING_ONLY";

@@ -27,6 +27,7 @@ import android.app.job.JobScheduler;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.PersistableBundle;
 
@@ -45,6 +46,7 @@ import java.net.SocketTimeoutException;
 
 import static com.owncloud.android.operations.UploadFileOperation.CREATED_AS_CAMERA_UPLOAD_PICTURE;
 import static com.owncloud.android.operations.UploadFileOperation.CREATED_AS_CAMERA_UPLOAD_VIDEO;
+import static com.owncloud.android.operations.UploadFileOperation.CREATED_AS_PICTURE_UPLOAD_FROM_SAF;
 
 /*
  * Facade to start operations in transfer services without the verbosity of Android Intents.
@@ -112,6 +114,41 @@ public class TransferRequester {
                 createRemoteFile,
                 createdBy
         );
+    }
+
+    /**
+     * Call to upload a file from the SAF
+     */
+    public void uploadFileFromSAF(
+            Context context,
+            Account account,
+            Uri contentUri,
+            String remotePath,
+            int behaviour,
+            String mimeType,
+            boolean createRemoteFolder
+    ) {
+
+        Intent intent = new Intent(context, FileUploader.class);
+
+        intent.putExtra(FileUploader.KEY_ACCOUNT, account);
+        intent.putExtra(FileUploader.KEY_CONTENT_URI, contentUri);
+        intent.putExtra(FileUploader.KEY_REMOTE_FILE, remotePath);
+        intent.putExtra(FileUploader.KEY_MIME_TYPE, mimeType);
+        intent.putExtra(FileUploader.KEY_LOCAL_BEHAVIOUR, behaviour);
+        intent.putExtra(FileUploader.KEY_CREATE_REMOTE_FOLDER, createRemoteFolder);
+        intent.putExtra(FileUploader.KEY_CREATED_BY, CREATED_AS_PICTURE_UPLOAD_FROM_SAF);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Since in Android O the apps running in background are not allowed to start background services. The
+            // camera uploads feature may try to do this. A way to solve this is to run the camera upload feature in
+            // the foreground.
+            Timber.d("Start to upload some files from foreground/background, startForeground() will be called soon");
+            context.startForegroundService(intent);
+        } else {
+            Timber.d("Start to upload some files from foreground");
+            context.startService(intent);
+        }
     }
 
     /**

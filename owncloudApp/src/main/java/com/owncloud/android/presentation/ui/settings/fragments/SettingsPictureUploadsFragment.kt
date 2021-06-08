@@ -23,9 +23,12 @@ package com.owncloud.android.presentation.ui.settings.fragments
 import android.app.Activity
 import android.content.DialogInterface
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.DocumentsContract
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.documentfile.provider.DocumentFile
 import androidx.preference.CheckBoxPreference
 import androidx.preference.ListPreference
 import androidx.preference.Preference
@@ -69,7 +72,13 @@ class SettingsPictureUploadsFragment : PreferenceFragmentCompat() {
     private val selectPictureUploadsSourcePathLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode != Activity.RESULT_OK) return@registerForActivityResult
-            picturesViewModel.handleSelectPictureUploadsSourcePath(result.data)
+
+            // here we ask the content resolver to persist the permission for us
+            val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            val contentUriForTree = result.data!!.data!!
+
+            requireContext().contentResolver.takePersistableUriPermission(contentUriForTree, takeFlags)
+            picturesViewModel.handleSelectPictureUploadsSourcePath(contentUriForTree)
             prefPictureUploadsSourcePath?.summary =
                 DisplayUtils.getPathWithoutLastSlash(picturesViewModel.getPictureUploadsSourcePath())
         }
@@ -152,8 +161,15 @@ class SettingsPictureUploadsFragment : PreferenceFragmentCompat() {
             if (sourcePath?.endsWith(File.separator) == false) {
                 sourcePath += File.separator
             }
-            val intent = Intent(activity, LocalFolderPickerActivity::class.java)
-            intent.putExtra(LocalFolderPickerActivity.EXTRA_PATH, sourcePath)
+            // Choose a directory using the system's file picker.
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                addFlags(
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                            or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                            or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
+                )
+            }
             selectPictureUploadsSourcePathLauncher.launch(intent)
             true
         }

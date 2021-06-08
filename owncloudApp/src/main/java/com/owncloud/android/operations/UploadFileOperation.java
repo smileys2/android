@@ -68,6 +68,7 @@ public class UploadFileOperation extends SyncOperation {
     public static final int CREATED_BY_USER = 0;
     public static final int CREATED_AS_CAMERA_UPLOAD_PICTURE = 1;
     public static final int CREATED_AS_CAMERA_UPLOAD_VIDEO = 2;
+    public static final int CREATED_AS_PICTURE_UPLOAD_FROM_SAF = 3;
 
     public static OCFile obtainNewOCFileToUpload(String remotePath, String localPath, String mimeType,
                                                  Context context) {
