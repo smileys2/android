@@ -27,8 +27,10 @@ import android.app.job.JobParameters;
 import android.app.job.JobScheduler;
 import android.app.job.JobService;
 import android.content.Context;
+import android.net.Uri;
 import android.os.AsyncTask;
 
+import androidx.documentfile.provider.DocumentFile;
 import com.owncloud.android.authentication.AccountUtils;
 import com.owncloud.android.datamodel.CameraUploadsSyncStorageManager;
 import com.owncloud.android.datamodel.OCCameraUploadSync;
@@ -125,11 +127,13 @@ public class CameraUploadsSyncJobService extends JobService {
             String localCameraVideosPath = mCameraUploadsVideosSourcePath;
 
             File[] localPictureFiles = null;
+            DocumentFile[] localPicturesDocumentFiles = null;
             File[] localVideoFiles = null;
 
             if (localCameraPicturesPath != null) {
-                File cameraPicturesFolder = new File(localCameraPicturesPath);
-                localPictureFiles = cameraPicturesFolder.listFiles();
+                DocumentFile documentTree = DocumentFile.fromTreeUri(mCameraUploadsSyncJobService.getApplicationContext(), Uri.parse(localCameraPicturesPath));
+                assert documentTree != null;
+                localPicturesDocumentFiles = documentTree.listFiles();
             }
 
             if (localCameraVideosPath != null) {
@@ -137,15 +141,15 @@ public class CameraUploadsSyncJobService extends JobService {
                 localVideoFiles = cameraVideosFolder.listFiles();
             }
 
-            if (localPictureFiles != null) {
-                orderFilesByCreationTimestamp(localPictureFiles);
+            if (localPicturesDocumentFiles != null) {
+                orderDocumentFilesByCreationTimestamp(localPicturesDocumentFiles);
 
-                for (File localFile : localPictureFiles) {
-                    String fileName = localFile.getName();
+                for (DocumentFile documentFile : localPicturesDocumentFiles) {
+                    String fileName = documentFile.getName();
                     String mimeType = MimetypeIconUtil.getBestMimeTypeByFilename(fileName);
                     boolean isImage = mimeType.startsWith("image/");
                     if (isImage) {
-                        handleFile(localFile);
+                        handleDocumentFile(documentFile);
                     }
                 }
             }
@@ -168,6 +172,80 @@ public class CameraUploadsSyncJobService extends JobService {
 
         private void orderFilesByCreationTimestamp(File[] localFiles) {
             Arrays.sort(localFiles, (file1, file2) -> Long.compare(file1.lastModified(), file2.lastModified()));
+        }
+
+        private void orderDocumentFilesByCreationTimestamp(DocumentFile[] localFiles) {
+            Arrays.sort(localFiles, (file1, file2) -> Long.compare(file1.lastModified(), file2.lastModified()));
+        }
+
+        /**
+         * Request the upload of a file just created if matches the criteria of the current
+         * configuration for camera uploads.
+         *
+         * @param localFile image or video to upload to the server
+         */
+        private synchronized void handleDocumentFile(DocumentFile localFile) {
+
+            String fileName = localFile.getName();
+            String mimeType = MimetypeIconUtil.getBestMimeTypeByFilename(fileName);
+            boolean isImage = mimeType.startsWith("image/");
+            boolean isVideo = mimeType.startsWith("video/");
+
+            String remotePath = (isImage ? mCameraUploadsPicturesPath : mCameraUploadsVideosPath) + fileName;
+
+            int createdBy = isImage ? UploadFileOperation.CREATED_AS_PICTURE_UPLOAD_FROM_SAF :
+                    UploadFileOperation.CREATED_AS_CAMERA_UPLOAD_VIDEO;
+
+            String localPath = (isImage ? mCameraUploadsPicturesSourcePath : mCameraUploadsVideosSourcePath) + File.separator + fileName;
+
+            int behaviour = isImage ? mCameraUploadsPicturesBehaviorAfterUpload : mCameraUploadsVideosBehaviorAfterUpload;
+            Account account = isImage ? mCameraUploadsPicturesAccount : mCameraUploadsVideosAccount;
+
+            mOCCameraUploadSync = mCameraUploadsSyncStorageManager.getCameraUploadSync(null, null,
+                    null);
+
+            if (mOCCameraUploadSync == null) {
+                Timber.d("There's no timestamp to compare with in database yet, not continue");
+                return;
+            }
+
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault());
+            if (isImage && localFile.lastModified() <= mOCCameraUploadSync.getPicturesLastSync()) {
+                Timber.i("Image " + localPath + " created before period to check, ignoring " +
+                        simpleDateFormat.format(new Date(localFile.lastModified())) + " <= " +
+                        simpleDateFormat.format(new Date(mOCCameraUploadSync.getPicturesLastSync()))
+                );
+                return;
+            }
+
+            if (isVideo && localFile.lastModified() <= mOCCameraUploadSync.getVideosLastSync()) {
+                Timber.i("Video " + localPath + " created before period to check, ignoring " +
+                        simpleDateFormat.format(new Date(localFile.lastModified())) + " <= " +
+                        simpleDateFormat.format(new Date(mOCCameraUploadSync.getVideosLastSync()))
+                );
+                return;
+            }
+
+            TransferRequester requester = new TransferRequester();
+            requester.uploadFileFromSAF(
+                    mCameraUploadsSyncJobService,
+                    account,
+                    localFile.getUri(),
+                    remotePath,
+                    behaviour,
+                    mimeType,
+                    true,           // create parent folder if not existent
+                    createdBy
+            );
+
+            // Update timestamps once the first picture/video has been enqueued
+            updateTimestamps(isImage, isVideo, localFile.lastModified());
+
+            if (account != null) {
+                Timber.i("Requested upload of %1s to %2s in %3s", localPath, remotePath, account.name);
+            } else {
+                Timber.w("Requested upload of %1s to %2s with no account!!", localPath, remotePath);
+            }
         }
 
         /**

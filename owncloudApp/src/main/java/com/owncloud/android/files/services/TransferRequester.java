@@ -126,7 +126,8 @@ public class TransferRequester {
             String remotePath,
             int behaviour,
             String mimeType,
-            boolean createRemoteFolder
+            boolean createRemoteFolder,
+            int createdBy
     ) {
 
         Intent intent = new Intent(context, FileUploader.class);
@@ -137,7 +138,7 @@ public class TransferRequester {
         intent.putExtra(FileUploader.KEY_MIME_TYPE, mimeType);
         intent.putExtra(FileUploader.KEY_LOCAL_BEHAVIOUR, behaviour);
         intent.putExtra(FileUploader.KEY_CREATE_REMOTE_FOLDER, createRemoteFolder);
-        intent.putExtra(FileUploader.KEY_CREATED_BY, CREATED_AS_PICTURE_UPLOAD_FROM_SAF);
+        intent.putExtra(FileUploader.KEY_CREATED_BY, createdBy);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // Since in Android O the apps running in background are not allowed to start background services. The
