@@ -73,15 +73,20 @@ import java.net.SocketTimeoutException
 
 fun <T> executeRemoteOperation(operation: () -> RemoteOperationResult<T>): T {
     operation.invoke().also {
+        return handleRemoteOperationResult(it).data
+    }
+}
+fun <T> executeRemoteOperationWithResult(operation: () -> RemoteOperationResult<T>): RemoteOperationResult<T> {
+    operation.invoke().also {
         return handleRemoteOperationResult(it)
     }
 }
 
 private fun <T> handleRemoteOperationResult(
     remoteOperationResult: RemoteOperationResult<T>
-): T {
+): RemoteOperationResult<T> {
     if (remoteOperationResult.isSuccess) {
-        return remoteOperationResult.data
+        return remoteOperationResult
     }
 
     when (remoteOperationResult.code) {

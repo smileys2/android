@@ -21,6 +21,7 @@ package com.owncloud.android.data.authentication.datasources.implementation
 import com.owncloud.android.data.ClientManager
 import com.owncloud.android.data.authentication.datasources.RemoteAuthenticationDataSource
 import com.owncloud.android.data.executeRemoteOperation
+import com.owncloud.android.data.executeRemoteOperationWithResult
 import com.owncloud.android.data.user.datasources.implementation.toDomain
 import com.owncloud.android.domain.user.model.UserInfo
 import com.owncloud.android.lib.common.OwnCloudClient
@@ -48,11 +49,13 @@ class OCRemoteAuthenticationDataSource(
             ).apply { credentials = ownCloudCredentials }
 
         val checkPathExistenceRemoteOperation = CheckPathExistenceRemoteOperation("/", true)
-        executeRemoteOperation { checkPathExistenceRemoteOperation.execute(client) }
+        val result = executeRemoteOperationWithResult { checkPathExistenceRemoteOperation.execute(client) }
 
         val userBaseUri =
-            checkPathExistenceRemoteOperation.redirectionPath?.lastPermanentLocation?.trimEnd(*WEBDAV_FILES_PATH_4_0.toCharArray())
-                ?: client.baseUri.toString()
+            if (result.redirectedLocation.isEmpty())
+                client.baseUri.toString()
+            else
+                buildFullUrlFromRedirect(result.redirectedLocation, client.baseUri.toString()).trimEnd(*WEBDAV_FILES_PATH_4_0.toCharArray())
 
         // Get user info. It is needed to save the account into the account manager
         lateinit var userInfo: UserInfo
@@ -63,4 +66,10 @@ class OCRemoteAuthenticationDataSource(
 
         return Pair(userInfo, userBaseUri)
     }
+
+    private fun buildFullUrlFromRedirect(redirect: String, baseUri: String) =
+        if (redirect.startsWith("/"))
+            (baseUri + redirect)
+        else
+            redirect
 }
